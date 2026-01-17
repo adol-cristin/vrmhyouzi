@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pentacle Oracle TCG - Master Edition</title>
+    <title>Pentacle Oracle TCG - Strategic Edition</title>
     <style>
         :root {
             --gold: #d4af37;
             --magical-glow: 0 0 15px rgba(212, 175, 55, 0.6);
-            /* 指定された魔法陣画像を背景に使用 */
             --bg-image: url('1000024437.jpg');
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -45,7 +44,7 @@
         .hand-area { height: 18vh; display: flex; justify-content: center; align-items: center; padding: 0 20px; z-index: 1000; }
         .field-row { width: 100%; height: 35vh; display: flex; justify-content: center; align-items: center; gap: 10px; }
         
-        .card { width: 70px; height: 98px; background: #111; border: 1.5px solid var(--gold); border-radius: 6px; position: relative; transition: all 0.3s ease; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.5); overflow: hidden; }
+        .card { width: 70px; height: 98px; background: #111; border: 1.5px solid var(--gold); border-radius: 6px; position: relative; transition: all 0.3s ease; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.5); overflow: hidden; cursor: pointer; }
         .card.used { transform: rotate(90deg) !important; filter: brightness(0.5); }
         .card-img { width: 100%; height: 45%; background-image: var(--bg-image); background-size: cover; background-position: center; border-bottom: 1px solid var(--gold); }
         .card-info { padding: 2px; text-align: center; background: rgba(0,0,0,0.8); height: 55%; }
@@ -57,8 +56,11 @@
         .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
         .hp-fill { height: 100%; transition: width 0.5s; }
         
-        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #000); color: var(--gold); border: 2px solid var(--gold); padding: 15px 10px; border-radius: 10px; font-weight: bold; z-index: 1000; cursor: pointer; }
+        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #000); color: var(--gold); border: 2px solid var(--gold); padding: 15px 10px; border-radius: 10px; font-weight: bold; z-index: 1000; cursor: pointer; width: 70px; text-align: center; }
         .mana-charge-target { border-color: #0ef; transform: translateY(-10px); box-shadow: 0 0 10px #0ef; }
+
+        /* フェイズ表示用バッジ */
+        #phase-display { position: absolute; right: 10px; top: 40%; transform: translateY(-100%); font-size: 0.7rem; color: #0ef; font-weight: bold; text-shadow: 0 0 5px #000; }
 
         /* --- リザルト画面 --- */
         #result-overlay {
@@ -79,9 +81,9 @@
 
 <div id="mode-select">
     <div class="select-title">PENTACLE ORACLE<br>TCG</div>
-    <button class="mode-btn" onclick="startGame(1)">Level 1<span>Enemy HP: 15 (Beginner)</span></button>
-    <button class="mode-btn" onclick="startGame(2)">Level 2<span>Enemy HP: 30 (Standard)</span></button>
-    <button class="mode-btn" onclick="startGame(3)">Level 3<span>Enemy HP: 50 (Expert)</span></button>
+    <button class="mode-btn" onclick="startGame(1)">Level 1<span>Enemy HP: 15</span></button>
+    <button class="mode-btn" onclick="startGame(2)">Level 2<span>Enemy HP: 30</span></button>
+    <button class="mode-btn" onclick="startGame(3)">Level 3<span>Enemy HP: 50</span></button>
 </div>
 
 <div id="table">
@@ -103,6 +105,7 @@
         <div style="font-size:0.55rem; margin-top:4px; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
     </div>
 
+    <div id="phase-display">PHASE: -</div>
     <button id="turn-btn" onclick="nextStep()">NEXT</button>
     <div id="player-hand" class="hand-area"></div>
 </div>
@@ -124,27 +127,20 @@
     let mana = 0, maxMana = 0, eMana = 0, eMaxMana = 0;
     let isTurn = true, currentPhase = "MAIN", gameOver = false;
 
-    // ゲーム開始
     function startGame(lv) {
-        gameOver = false;
-        pHP = 30;
+        gameOver = false; pHP = 30;
         initialEHP = (lv === 1) ? 15 : (lv === 2) ? 30 : 50;
-        eHP = initialEHP;
-        mana = 0; maxMana = 0; eMana = 0; eMaxMana = 0;
+        eHP = initialEHP; mana = 0; maxMana = 0; eMana = 0; eMaxMana = 0;
         isTurn = true;
-
         document.getElementById('mode-select').style.display = 'none';
         document.getElementById('table').style.display = 'flex';
         document.getElementById('table').style.filter = "none";
         document.getElementById('result-overlay').style.display = 'none';
-
-        // 初期化
         document.getElementById('player-hand').innerHTML = '';
         document.getElementById('enemy-hand').innerHTML = '';
         document.getElementById('player-field').innerHTML = '';
         document.getElementById('enemy-field').innerHTML = '';
         document.getElementById('log-container').innerHTML = '';
-
         for(let i=0; i<3; i++) { drawCard('player-hand', true); drawCard('enemy-hand', false); }
         setPhase("MANA_CHARGE");
         updateUI();
@@ -168,18 +164,11 @@
 
     function showResult(isWin) {
         gameOver = true;
-        const table = document.getElementById('table');
-        const overlay = document.getElementById('result-overlay');
+        document.getElementById('table').style.filter = "grayscale(1) brightness(0.5)";
+        document.getElementById('result-overlay').style.display = "flex";
         const text = document.getElementById('result-text');
-        table.style.filter = "grayscale(1) brightness(0.5)";
-        overlay.style.display = "flex";
-        if (isWin) {
-            text.innerText = "Victory";
-            text.className = "result-title win-text";
-        } else {
-            text.innerText = "Defeated";
-            text.className = "result-title lose-text";
-        }
+        if (isWin) { text.innerText = "Victory"; text.className = "result-title win-text"; }
+        else { text.innerText = "Defeated"; text.className = "result-title lose-text"; }
     }
 
     function updateUI() {
@@ -217,20 +206,38 @@
         if (!isTurn || gameOver) return;
         if (currentPhase === "MANA_CHARGE") {
             maxMana = Math.min(maxMana + 1, 10); mana = maxMana;
-            card.remove(); updateUI(); setPhase("MAIN");
+            card.remove(); updateUI(); 
+            addLog("マナを捧げた", "player");
+            setPhase("MAIN");
         } else if (currentPhase === "MAIN") {
-            if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
-                mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
+            if (card.parentElement.id === 'player-hand') {
+                if (mana >= data.cost) {
+                    mana -= data.cost; 
+                    document.getElementById('player-field').appendChild(card); 
+                    updateUI();
+                }
             } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
                 eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
-                addLog(`攻撃: ${name}`, "player");
+                addLog(`${data.atk}ダメ!`, "player");
             }
         }
     }
 
     function setPhase(phase) {
         currentPhase = phase;
-        addLog(phase === "MANA_CHARGE" ? "マナ補充" : "メインフェイズ", "system");
+        const display = document.getElementById('phase-display');
+        const btn = document.getElementById('turn-btn');
+        if (phase === "MANA_CHARGE") {
+            display.innerText = "PHASE: MANA";
+            display.style.color = "#0ef";
+            btn.innerText = "SKIP"; // マナ補充中はスキップボタンに
+            addLog("マナ補充フェイズ", "system");
+        } else {
+            display.innerText = "PHASE: MAIN";
+            display.style.color = var(--gold);
+            btn.innerText = "END"; // メインフェイズはターン終了ボタンに
+            addLog("メインフェイズ", "system");
+        }
         document.querySelectorAll('#player-hand .card').forEach(c => {
             phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
         });
@@ -238,34 +245,35 @@
 
     async function nextStep() {
         if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") { addLog("マナにするカードを選んでください", "system"); return; }
         
-        isTurn = false; document.getElementById('turn-btn').innerText = "WAIT";
-        await enemyTurnLogic();
-        
-        if (!gameOver) {
-            isTurn = true; document.getElementById('turn-btn').innerText = "NEXT";
-            drawCard('player-hand', true); drawCard('enemy-hand', false);
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
-            setPhase("MANA_CHARGE"); updateUI();
+        if (currentPhase === "MANA_CHARGE") {
+            // スキップしてメインへ
+            addLog("マナ補充をスキップ", "player");
+            setPhase("MAIN");
+        } else {
+            // ターン終了
+            isTurn = false; document.getElementById('turn-btn').innerText = "...";
+            await enemyTurnLogic();
+            if (!gameOver) {
+                isTurn = true;
+                drawCard('player-hand', true); drawCard('enemy-hand', false);
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
+                setPhase("MANA_CHARGE"); updateUI();
+            }
         }
     }
 
     async function enemyTurnLogic() {
         await new Promise(r => setTimeout(r, 800));
         eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana; updateUI();
-
-        // 敵のフィールド攻撃
         const activeCards = document.querySelectorAll('#enemy-field .card');
         for (let c of activeCards) {
             if(gameOver) return;
             const name = c.querySelector('.card-name').innerText;
             pHP = Math.max(0, pHP - monsterData[name].atk);
-            c.classList.add('used'); addLog(`敵の攻撃: ${name}`, 'enemy'); updateUI();
+            c.classList.add('used'); addLog(`敵攻: ${name}`, 'enemy'); updateUI();
             await new Promise(r => setTimeout(r, 600));
         }
-
-        // 敵の召喚
         const eHand = document.getElementById('enemy-hand');
         if (eHand.children.length > 0) {
             const keys = Object.keys(monsterData);
@@ -273,7 +281,7 @@
             if (eMana >= monsterData[name].cost) {
                 eMana -= monsterData[name].cost; eHand.firstElementChild.remove();
                 document.getElementById('enemy-field').appendChild(createCard(name, true));
-                addLog(`敵が召喚: ${name}`, 'enemy'); updateUI();
+                addLog(`敵召: ${name}`, 'enemy'); updateUI();
             }
         }
         await new Promise(r => setTimeout(r, 600));
