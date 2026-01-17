@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pentacle Oracle - Elemental Edition</title>
+    <title>Pentacle Oracle TCG - Master Edition</title>
     <style>
         :root {
             --gold: #d4af37;
             --magical-glow: 0 0 15px rgba(212, 175, 55, 0.6);
-            --card-image: url('https://indices.googleusercontent.com/image_generation_content/0');
+            /* 指定された魔法陣画像を背景に使用 */
+            --bg-image: url('1000024437.jpg');
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { margin: 0; background: #000; color: #fcf6ba; font-family: 'Georgia', serif; height: 100vh; overflow: hidden; }
@@ -16,111 +17,90 @@
         /* --- モード選択画面 --- */
         #mode-select {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: radial-gradient(circle, #1a2a1a 0%, #000 100%);
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), var(--bg-image);
+            background-size: cover; background-position: center;
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10000;
         }
-        .select-title { font-size: 2.5rem; color: var(--gold); text-shadow: var(--magical-glow); margin-bottom: 40px; }
+        .select-title { font-size: 2.5rem; color: var(--gold); text-shadow: var(--magical-glow); margin-bottom: 40px; text-align: center; }
         .mode-btn {
             width: 250px; padding: 20px; margin: 10px;
-            background: rgba(0,0,0,0.7); border: 2px solid var(--gold); color: var(--gold);
+            background: rgba(0,0,0,0.8); border: 2px solid var(--gold); color: var(--gold);
             font-size: 1.2rem; border-radius: 10px; cursor: pointer; transition: 0.3s;
         }
         .mode-btn:hover { background: var(--gold); color: #000; box-shadow: var(--magical-glow); }
+        .mode-btn span { display: block; font-size: 0.8rem; margin-top: 5px; opacity: 0.8; }
 
-        /* --- ゲームテーブル --- */
+        /* --- ゲーム画面 --- */
         #table {
             height: 100vh; width: 100vw; display: none; flex-direction: column;
-            background: radial-gradient(circle at center, #0a1a0a 0%, #000000 100%);
+            background: radial-gradient(circle at center, rgba(0, 51, 0, 0.8) 0%, rgba(0,0,0,0.9) 100%), var(--bg-image);
+            background-size: cover; background-position: center;
             position: relative; transition: filter 1s ease;
         }
 
-        #log-container { position: absolute; left: 10px; top: 10px; width: 200px; height: 100px; background: rgba(0, 0, 0, 0.7); border-left: 3px solid var(--gold); z-index: 2000; padding: 8px; font-size: 0.75rem; display: flex; flex-direction: column-reverse; pointer-events: none; overflow: hidden; }
+        #log-container { position: absolute; left: 10px; top: 10px; width: 180px; height: 100px; background: rgba(0, 0, 0, 0.6); border-left: 3px solid var(--gold); z-index: 2000; padding: 8px; font-size: 0.7rem; display: flex; flex-direction: column-reverse; pointer-events: none; overflow: hidden; }
         .log-entry { margin-bottom: 4px; border-bottom: 1px solid rgba(212, 175, 55, 0.1); }
-        .log-player { color: #0ef; } .log-enemy { color: #f44; }
-
-        .hand-area { height: 20vh; display: flex; justify-content: center; align-items: center; padding: 0 10px; z-index: 1000; }
-        .field-row { width: 100%; height: 30vh; display: flex; justify-content: center; align-items: center; gap: 8px; }
-
-        /* --- カードデザイン (色変化対応) --- */
-        .card { 
-            width: 82px; height: 115px; background: #000; border: 1.5px solid var(--gold); 
-            border-radius: 6px; position: relative; transition: 0.3s; 
-            flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.9); overflow: hidden;
-        }
-        .card.used { transform: rotate(10deg) scale(0.9) !important; filter: brightness(0.2) !important; }
+        .log-player { color: #0ef; } .log-enemy { color: #f44; } .log-system { color: #fff; font-weight: bold; background: rgba(212, 175, 55, 0.2); padding: 2px 4px; border-radius: 2px; text-align: center; }
         
-        /* 基本のペンタクル画像 */
-        .card-img { 
-            width: 100%; height: 100%; 
-            background-image: var(--card-image);
-            background-size: cover; background-position: center;
-            position: absolute; top: 0; left: 0;
-            transition: filter 0.5s;
-        }
-
-        /* 属性ごとの色フィルタ */
-        .card.fire .card-img { filter: sepia(1) saturate(5) hue-rotate(-50deg); }
-        .card.water .card-img { filter: sepia(1) saturate(5) hue-rotate(180deg); }
-        .card.forest .card-img { filter: sepia(1) saturate(5) hue-rotate(80deg); }
-        .card.dark .card-img { filter: sepia(1) saturate(3) hue-rotate(250deg) brightness(0.7); }
-        .card.light .card-img { filter: sepia(0) brightness(1.2) saturate(1.2); }
-
-        .card-overlay {
-            position: absolute; bottom: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, rgba(0,0,0,0) 30%, rgba(0,0,0,0.85) 85%);
-            display: flex; flex-direction: column; justify-content: space-between; padding: 5px;
-        }
-
-        .card-cost { width: 19px; height: 19px; background: #222; color: #fff; border-radius: 50%; font-size: 0.7rem; text-align: center; line-height: 19px; border: 1px solid var(--gold); font-weight: bold; }
-        .card.fire .card-cost { background: #600; } .card.water .card-cost { background: #006; }
-
-        .card-name { font-size: 0.6rem; font-weight: bold; color: #fff; text-align: center; text-shadow: 0 0 4px #000; letter-spacing: -0.5px; }
-        .card-stats { display: flex; justify-content: space-between; }
-        .stat-orb { width: 19px; height: 19px; border-radius: 50%; border: 1px solid var(--gold); font-size: 0.65rem; text-align: center; background: rgba(0,0,0,0.9); line-height: 18px; font-weight: bold; }
-
-        /* --- HUD & ボタン --- */
-        .hud { position: absolute; left: 10px; width: 140px; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid var(--gold); border-radius: 8px; z-index: 700; box-shadow: var(--magical-glow); }
-        .enemy-hud { top: 22vh; } .player-hud { bottom: 22vh; }
-        .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin: 4px 0; }
+        .hand-area { height: 18vh; display: flex; justify-content: center; align-items: center; padding: 0 20px; z-index: 1000; }
+        .field-row { width: 100%; height: 35vh; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        
+        .card { width: 70px; height: 98px; background: #111; border: 1.5px solid var(--gold); border-radius: 6px; position: relative; transition: all 0.3s ease; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.5); overflow: hidden; }
+        .card.used { transform: rotate(90deg) !important; filter: brightness(0.5); }
+        .card-img { width: 100%; height: 45%; background-image: var(--bg-image); background-size: cover; background-position: center; border-bottom: 1px solid var(--gold); }
+        .card-info { padding: 2px; text-align: center; background: rgba(0,0,0,0.8); height: 55%; }
+        .card-name { font-size: 0.55rem; font-weight: bold; color: #fff; }
+        .stat-orb { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--gold); font-size: 0.6rem; text-align: center; background: #000; line-height: 16px; }
+        
+        .hud { position: absolute; left: 10px; width: 130px; background: rgba(0,0,0,0.85); padding: 6px; border: 1px solid var(--gold); border-radius: 8px; z-index: 700; }
+        .enemy-hud { top: 20vh; } .player-hud { bottom: 20vh; }
+        .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
         .hp-fill { height: 100%; transition: width 0.5s; }
         
-        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #2a0a4a); color: var(--gold); border: 2px solid var(--gold); padding: 18px 12px; border-radius: 50%; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: var(--magical-glow); }
-        .mana-charge-target { border-color: #0ef; transform: scale(1.1) translateY(-10px); box-shadow: 0 0 20px #0ef; }
+        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #000); color: var(--gold); border: 2px solid var(--gold); padding: 15px 10px; border-radius: 10px; font-weight: bold; z-index: 1000; cursor: pointer; }
+        .mana-charge-target { border-color: #0ef; transform: translateY(-10px); box-shadow: 0 0 10px #0ef; }
 
+        /* --- リザルト画面 --- */
         #result-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;
+            background: rgba(0, 0, 0, 0.9); display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; backdrop-filter: blur(5px);
         }
-        .result-title { font-size: 3rem; margin-bottom: 20px; }
+        .result-title { font-size: 3rem; font-weight: bold; margin-bottom: 20px; animation: titleDrop 0.8s ease-out; }
         .win-text { color: var(--gold); text-shadow: 0 0 20px var(--gold); }
+        .lose-text { color: #f44; text-shadow: 0 0 20px #f44; }
+        @keyframes titleDrop { from { transform: scale(5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .result-btn { margin-top: 15px; padding: 12px 30px; background: none; border: 2px solid var(--gold); color: var(--gold); border-radius: 50px; cursor: pointer; transition: 0.3s; width: 220px; font-size: 1.1rem; }
+        .result-btn:hover { background: var(--gold); color: #000; }
     </style>
 </head>
 <body>
 
 <div id="mode-select">
-    <div class="select-title">Pentacle Oracle</div>
-    <button class="mode-btn" onclick="startGame(1)">Beginner (HP 15)</button>
-    <button class="mode-btn" onclick="startGame(2)">Standard (HP 30)</button>
-    <button class="mode-btn" onclick="startGame(3)">Expert (HP 50)</button>
+    <div class="select-title">PENTACLE ORACLE<br>TCG</div>
+    <button class="mode-btn" onclick="startGame(1)">Level 1<span>Enemy HP: 15 (Beginner)</span></button>
+    <button class="mode-btn" onclick="startGame(2)">Level 2<span>Enemy HP: 30 (Standard)</span></button>
+    <button class="mode-btn" onclick="startGame(3)">Level 3<span>Enemy HP: 50 (Expert)</span></button>
 </div>
 
 <div id="table">
     <div id="log-container"></div>
-    <div id="enemy-hand" class="hand-area"></div>
+    <div id="enemy-hand" class="hand-area" style="align-items: flex-start;"></div>
     
     <div class="hud enemy-hud">
-        <div style="font-size:0.65rem; color:#f44;">ENEMY HP: <span id="e-hp-num">30</span></div>
+        <div style="font-size:0.6rem; color:#f44;">ENEMY: <span id="e-hp-num">30</span></div>
         <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#f44; width:100%;"></div></div>
-        <div style="font-size:0.6rem; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
+        <div style="font-size:0.55rem; margin-top:4px; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
     </div>
 
     <div id="enemy-field" class="field-row"></div>
     <div id="player-field" class="field-row"></div>
 
     <div class="hud player-hud">
-        <div style="font-size:0.65rem; color:#0ef;">PLAYER HP: <span id="p-hp-num">30</span></div>
+        <div style="font-size:0.6rem; color:#0ef;">PLAYER: <span id="p-hp-num">30</span></div>
         <div class="hp-bar"><div id="p-hp-fill" class="hp-fill" style="background:#2ecc71; width:100%;"></div></div>
-        <div style="font-size:0.6rem; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
+        <div style="font-size:0.55rem; margin-top:4px; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
     </div>
 
     <button id="turn-btn" onclick="nextStep()">NEXT</button>
@@ -129,50 +109,107 @@
 
 <div id="result-overlay">
     <div id="result-text" class="result-title"></div>
-    <button class="mode-btn" onclick="location.reload()">Return</button>
+    <button class="result-btn" onclick="location.reload()">もう一度プレイ</button>
+    <button class="result-btn" style="border:none; font-size: 0.9rem; opacity:0.7;" onclick="resetToMenu()">レベル選択へ戻る</button>
 </div>
 
 <script>
     const monsterData = {
-        "火竜のリチュアル": { cost: 5, atk: 7, hp: 6, type: "fire" }, 
-        "深海のしずく": { cost: 1, atk: 1, hp: 5, type: "water" },
-        "森の守護精霊": { cost: 2, atk: 2, hp: 3, type: "forest" }, 
-        "闇夜の執行者": { cost: 4, atk: 6, hp: 3, type: "dark" },
-        "光輝の聖騎士": { cost: 3, atk: 4, hp: 5, type: "light" }, 
-        "混沌の魔眼": { cost: 6, atk: 10, hp: 8, type: "dark" },
-        "癒しの魔導士": { cost: 2, atk: 1, hp: 6, type: "water" }
+        "ミノタウロス": { cost: 3, atk: 5, hp: 5 }, "スライム": { cost: 1, atk: 1, hp: 4 },
+        "ゴブリン": { cost: 1, atk: 2, hp: 1 }, "オーク": { cost: 3, atk: 4, hp: 5 },
+        "スケルトン": { cost: 2, atk: 3, hp: 2 }, "バハムート": { cost: 6, atk: 12, hp: 10 }
     };
 
-    let pHP = 30, eHP = 30, initialEnemyHP = 30;
+    let pHP = 30, eHP = 30, initialEHP = 30;
     let mana = 0, maxMana = 0, eMana = 0, eMaxMana = 0;
     let isTurn = true, currentPhase = "MAIN", gameOver = false;
 
+    // ゲーム開始
     function startGame(lv) {
-        pHP = 30; initialEnemyHP = (lv === 1) ? 15 : (lv === 2) ? 30 : 50;
-        eHP = initialEnemyHP; mana = 0; maxMana = 0;
+        gameOver = false;
+        pHP = 30;
+        initialEHP = (lv === 1) ? 15 : (lv === 2) ? 30 : 50;
+        eHP = initialEHP;
+        mana = 0; maxMana = 0; eMana = 0; eMaxMana = 0;
+        isTurn = true;
+
         document.getElementById('mode-select').style.display = 'none';
         document.getElementById('table').style.display = 'flex';
+        document.getElementById('table').style.filter = "none";
+        document.getElementById('result-overlay').style.display = 'none';
+
+        // 初期化
+        document.getElementById('player-hand').innerHTML = '';
+        document.getElementById('enemy-hand').innerHTML = '';
+        document.getElementById('player-field').innerHTML = '';
+        document.getElementById('enemy-field').innerHTML = '';
+        document.getElementById('log-container').innerHTML = '';
+
         for(let i=0; i<3; i++) { drawCard('player-hand', true); drawCard('enemy-hand', false); }
         setPhase("MANA_CHARGE");
         updateUI();
-        addLog(`探索開始... Level ${lv}`, "system");
+        addLog(`Level ${lv} Start!`, "system");
     }
 
-    function createCard(name, isPlayer) {
-        const data = monsterData[name];
+    function resetToMenu() {
+        document.getElementById('mode-select').style.display = 'flex';
+        document.getElementById('table').style.display = 'none';
+        document.getElementById('result-overlay').style.display = 'none';
+    }
+
+    function addLog(msg, type = 'system') {
+        const log = document.getElementById('log-container');
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.innerText = type === 'system' ? `【 ${msg} 】` : msg;
+        log.insertBefore(entry, log.firstChild);
+        if (log.childNodes.length > 5) log.removeChild(log.lastChild);
+    }
+
+    function showResult(isWin) {
+        gameOver = true;
+        const table = document.getElementById('table');
+        const overlay = document.getElementById('result-overlay');
+        const text = document.getElementById('result-text');
+        table.style.filter = "grayscale(1) brightness(0.5)";
+        overlay.style.display = "flex";
+        if (isWin) {
+            text.innerText = "Victory";
+            text.className = "result-title win-text";
+        } else {
+            text.innerText = "Defeated";
+            text.className = "result-title lose-text";
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('p-hp-num').innerText = pHP;
+        document.getElementById('e-hp-num').innerText = eHP;
+        document.getElementById('p-hp-fill').style.width = (pHP/30*100) + "%";
+        document.getElementById('e-hp-fill').style.width = (eHP/initialEHP*100) + "%";
+        document.getElementById('mana-val').innerText = mana;
+        document.getElementById('max-mana').innerText = maxMana;
+        document.getElementById('e-mana-val').innerText = eMana;
+        document.getElementById('e-max-mana').innerText = eMaxMana;
+        if (!gameOver) {
+            if (eHP <= 0) showResult(true);
+            else if (pHP <= 0) showResult(false);
+        }
+    }
+
+    function createCard(name, isVisible) {
         const card = document.createElement('div');
-        card.className = `card ${data.type}`; // ここで属性クラスを付与
-        card.innerHTML = `
-            <div class="card-img"></div>
-            <div class="card-overlay">
-                <div class="card-cost">${data.cost}</div>
-                <div class="card-name">${name}</div>
-                <div class="card-stats">
-                    <div class="stat-orb" style="color:#f44; border-color:#f44;">${data.atk}</div>
-                    <div class="stat-orb" style="color:#2ecc71; border-color:#2ecc71;">${data.hp}</div>
-                </div>
-            </div>`;
-        if (isPlayer) card.onclick = () => handleCardClick(card, data);
+        card.className = 'card';
+        const data = monsterData[name];
+        if (isVisible) {
+            card.innerHTML = `<div style="position:absolute; top:2px; left:2px; width:18px; height:18px; background:#0055ff; color:#fff; border-radius:50%; font-size:0.6rem; text-align:center; line-height:18px; z-index:10;">${data.cost}</div>
+                <div class="card-img"></div>
+                <div class="card-info"><div class="card-name">${name}</div><div style="display:flex; justify-content:space-around; margin-top:5px;">
+                <div class="stat-orb" style="color:#f44;">${data.atk}</div><div class="stat-orb" style="color:#2ecc71;">${data.hp}</div></div></div>`;
+            card.onclick = () => handleCardClick(card, data);
+        } else {
+            card.innerHTML = `<div class="card-img" style="height:100%; border:none;"></div><div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--gold); font-size:2rem;">?</div>`;
+        }
         return card;
     }
 
@@ -184,17 +221,16 @@
         } else if (currentPhase === "MAIN") {
             if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
                 mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
-                addLog(`${data.type.toUpperCase()} 召喚!`, "player");
             } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
                 eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
-                addLog(`${data.atk} Damage!`, "player");
+                addLog(`攻撃: ${name}`, "player");
             }
         }
     }
 
     function setPhase(phase) {
         currentPhase = phase;
-        addLog(phase === "MANA_CHARGE" ? "マナを捧げよ" : "行動を選択せよ", "system");
+        addLog(phase === "MANA_CHARGE" ? "マナ補充" : "メインフェイズ", "system");
         document.querySelectorAll('#player-hand .card').forEach(c => {
             phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
         });
@@ -202,9 +238,11 @@
 
     async function nextStep() {
         if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") return;
-        isTurn = false; document.getElementById('turn-btn').innerText = "...";
+        if (currentPhase === "MANA_CHARGE") { addLog("マナにするカードを選んでください", "system"); return; }
+        
+        isTurn = false; document.getElementById('turn-btn').innerText = "WAIT";
         await enemyTurnLogic();
+        
         if (!gameOver) {
             isTurn = true; document.getElementById('turn-btn').innerText = "NEXT";
             drawCard('player-hand', true); drawCard('enemy-hand', false);
@@ -214,61 +252,40 @@
     }
 
     async function enemyTurnLogic() {
-        addLog("敵のターン...", "enemy");
-        await new Promise(r => setTimeout(r, 1000));
-        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana;
-        
+        await new Promise(r => setTimeout(r, 800));
+        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana; updateUI();
+
+        // 敵のフィールド攻撃
         const activeCards = document.querySelectorAll('#enemy-field .card');
         for (let c of activeCards) {
+            if(gameOver) return;
             const name = c.querySelector('.card-name').innerText;
             pHP = Math.max(0, pHP - monsterData[name].atk);
-            c.classList.add('used'); updateUI();
+            c.classList.add('used'); addLog(`敵の攻撃: ${name}`, 'enemy'); updateUI();
             await new Promise(r => setTimeout(r, 600));
         }
 
-        const names = Object.keys(monsterData);
-        const name = names[Math.floor(Math.random() * names.length)];
-        if (eMana >= monsterData[name].cost) {
-            eMana -= monsterData[name].cost;
-            document.getElementById('enemy-field').appendChild(createCard(name, false));
-            updateUI();
+        // 敵の召喚
+        const eHand = document.getElementById('enemy-hand');
+        if (eHand.children.length > 0) {
+            const keys = Object.keys(monsterData);
+            const name = keys[Math.floor(Math.random() * keys.length)];
+            if (eMana >= monsterData[name].cost) {
+                eMana -= monsterData[name].cost; eHand.firstElementChild.remove();
+                document.getElementById('enemy-field').appendChild(createCard(name, true));
+                addLog(`敵が召喚: ${name}`, 'enemy'); updateUI();
+            }
         }
+        await new Promise(r => setTimeout(r, 600));
     }
 
     function drawCard(targetId, isPlayer) {
         const hand = document.getElementById(targetId);
         if (hand.children.length < 5) {
-            const names = Object.keys(monsterData);
-            const name = names[Math.floor(Math.random() * names.length)];
+            const keys = Object.keys(monsterData);
+            const name = keys[Math.floor(Math.random() * keys.length)];
             hand.appendChild(createCard(name, isPlayer));
         }
-    }
-
-    function updateUI() {
-        document.getElementById('p-hp-num').innerText = pHP;
-        document.getElementById('e-hp-num').innerText = eHP;
-        document.getElementById('p-hp-fill').style.width = (pHP/30*100) + "%";
-        document.getElementById('e-hp-fill').style.width = (eHP/initialEnemyHP*100) + "%";
-        document.getElementById('mana-val').innerText = mana;
-        document.getElementById('max-mana').innerText = maxMana;
-        document.getElementById('e-mana-val').innerText = eMana;
-        document.getElementById('e-max-mana').innerText = eMaxMana;
-        if (eHP <= 0) showResult(true); else if (pHP <= 0) showResult(false);
-    }
-
-    function addLog(msg, type) {
-        const log = document.getElementById('log-container');
-        const entry = document.createElement('div');
-        entry.className = `log-entry log-${type}`;
-        entry.innerText = msg;
-        log.insertBefore(entry, log.firstChild);
-    }
-
-    function showResult(isWin) {
-        gameOver = true;
-        document.getElementById('result-overlay').style.display = "flex";
-        document.getElementById('result-text').innerText = isWin ? "VICTORY" : "DEFEATED";
-        document.getElementById('result-text').className = `result-title ${isWin ? 'win-text' : ''}`;
     }
 </script>
 </body>
