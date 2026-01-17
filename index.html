@@ -1,75 +1,256 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VRM Live Fix</title>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.2/lib/three-vrm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.itools.js"></script>
+    <title>Pentacle Oracle TCG - Victory/Defeat</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #00ff00; font-family: sans-serif; }
-        #ui { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; width: calc(100% - 40px); color: white; }
-        button, input { width: 100%; padding: 15px; margin: 10px 0; font-size: 16px; border-radius: 8px; border: none; }
-        button { background: #e67e22; color: white; font-weight: bold; } /* 目立つ色に */
-        #log { font-size: 11px; color: #00ff00; background: #000; padding: 5px; height: 50px; overflow-y: auto; }
+        :root {
+            --gold: #d4af37;
+            --magical-glow: 0 0 15px rgba(212, 175, 55, 0.6);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { margin: 0; background: #000; color: #fcf6ba; font-family: 'Georgia', serif; height: 100vh; overflow: hidden; }
+
+        #table {
+            height: 100vh; width: 100vw; display: flex; flex-direction: column;
+            background: radial-gradient(circle at center, #003300 0%, #001100 60%, #000000 100%);
+            position: relative; transition: filter 1s ease;
+        }
+
+        /* 戻るボタン */
+        .back-btn {
+            position: absolute; top: 10px; right: 10px; z-index: 3000;
+            padding: 8px 15px; background: rgba(0,0,0,0.8); color: var(--gold);
+            border: 1px solid var(--gold); border-radius: 5px; font-size: 12px; cursor: pointer;
+        }
+
+        /* ログ・HUD・カードのデザイン（以前と同様） */
+        #log-container { position: absolute; left: 10px; top: 10px; width: 180px; height: 100px; background: rgba(0, 0, 0, 0.6); border-left: 3px solid var(--gold); z-index: 2000; padding: 8px; font-size: 0.7rem; display: flex; flex-direction: column-reverse; pointer-events: none; overflow: hidden; }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid rgba(212, 175, 55, 0.1); }
+        .log-player { color: #0ef; } .log-enemy { color: #f44; } .log-system { color: #fff; font-weight: bold; background: rgba(212, 175, 55, 0.2); padding: 2px 4px; border-radius: 2px; text-align: center; }
+        .hand-area { height: 18vh; display: flex; justify-content: center; align-items: center; padding: 0 20px; z-index: 1000; }
+        .field-row { width: 100%; height: 35vh; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .card { width: 70px; height: 98px; background: #111; border: 1.5px solid var(--gold); border-radius: 6px; position: relative; transition: all 0.3s ease; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .card.used { transform: rotate(90deg) !important; filter: brightness(0.5); }
+        .card-img { width: 100%; height: 45%; background-image: url('1000024414.jpg'); background-size: cover; border-bottom: 1px solid var(--gold); }
+        .card-info { padding: 2px; text-align: center; background: rgba(0,0,0,0.6); height: 55%; }
+        .card-name { font-size: 0.6rem; font-weight: bold; color: #fff; }
+        .stat-orb { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--gold); font-size: 0.6rem; text-align: center; background: #000; line-height: 16px; }
+        .hud { position: absolute; left: 10px; width: 130px; background: rgba(0,0,0,0.85); padding: 6px; border: 1px solid var(--gold); border-radius: 8px; z-index: 700; }
+        .enemy-hud { top: 20vh; } .player-hud { bottom: 20vh; }
+        .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+        .hp-fill { height: 100%; transition: width 0.5s; }
+        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #000); color: var(--gold); border: 2px solid var(--gold); padding: 15px 10px; border-radius: 10px; font-weight: bold; z-index: 1000; }
+        .mana-charge-target { border-color: #0ef; transform: translateY(-10px); }
+
+        /* リザルト画面のスタイル */
+        #result-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; backdrop-filter: blur(5px);
+        }
+        .result-title {
+            font-size: 3rem; font-weight: bold; margin-bottom: 20px;
+            text-transform: uppercase; letter-spacing: 5px;
+            animation: titleDrop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .win-text { color: var(--gold); text-shadow: 0 0 20px var(--gold); }
+        .lose-text { color: #f44; text-shadow: 0 0 20px #f44; }
+        
+        @keyframes titleDrop {
+            from { transform: scale(5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .result-btn {
+            margin-top: 30px; padding: 12px 30px;
+            background: none; border: 2px solid var(--gold); color: var(--gold);
+            font-size: 1.2rem; border-radius: 50px; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .result-btn:hover { background: var(--gold); color: #000; box-shadow: 0 0 20px var(--gold); }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <b>1. モデル選択</b>
-        <input type="file" id="fileInput" accept=".vrm">
-        <b>2. 起動 (準備を待たずに押せます)</b>
-        <button id="startBtn">カメラを強制開始</button>
-        <div id="log">ログ: 初期化中...</div>
+
+<div id="table">
+    <button class="back-btn" onclick="location.href='x.html'">🚪 戻る</button>
+    <div id="log-container"></div>
+    <div id="enemy-hand" class="hand-area" style="align-items: flex-start;"></div>
+    
+    <div class="hud enemy-hud">
+        <div style="font-size:0.6rem; color:#f44;">ENEMY: <span id="e-hp-num">30</span></div>
+        <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#f44; width:100%;"></div></div>
+        <div style="font-size:0.55rem; margin-top:4px; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
     </div>
-    <video id="video" playsinline muted autoplay style="display:none;"></video>
-    <div id="canvas-container"></div>
 
-    <script>
-        const log = (m) => { document.getElementById('log').innerHTML = m; };
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x00ff00);
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 20);
-        camera.position.set(0, 1.4, 1.4);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
-        scene.add(new THREE.DirectionalLight(0xffffff, 1.0), new THREE.AmbientLight(0xffffff, 0.8));
+    <div id="enemy-field" class="field-row"></div>
+    <div id="player-field" class="field-row"></div>
 
-        let currentVrm = null;
-        const loader = new THREE.GLTFLoader();
+    <div class="hud player-hud">
+        <div style="font-size:0.6rem; color:#0ef;">PLAYER: <span id="p-hp-num">30</span></div>
+        <div class="hp-bar"><div id="p-hp-fill" class="hp-fill" style="background:#2ecc71; width:100%;"></div></div>
+        <div style="font-size:0.55rem; margin-top:4px; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
+    </div>
 
-        // モデル読込
-        document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            log("モデル読込中...");
-            loader.load(URL.createObjectURL(file), (gltf) => {
-                THREE.VRM.from(gltf).then((vrm) => {
-                    if(currentVrm) scene.remove(currentVrm.scene);
-                    currentVrm = vrm;
-                    scene.add(vrm.scene);
-                    vrm.scene.rotation.y = Math.PI;
-                    log("✅ モデルOK。カメラを押して！");
-                });
-            });
-        };
+    <button id="turn-btn" onclick="nextStep()">NEXT</button>
+    <div id="player-hand" class="hand-area"></div>
+</div>
 
-        // トラッキング設定
-        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
-        faceMesh.onResults((results) => {
-            if (!currentVrm || !results.multiFaceLandmarks[0]) return;
-            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: document.getElementById('video') });
-            const head = currentVrm.humanoid.getRawBoneNode('head');
-            if(head) { head.rotation.y = rig.head.y; head.rotation.x = rig.head.x; }
-            const m = rig.mouth.shape;
-            currentVrm.expressionManager.setValue('aa', m.A);
-            currentVrm.expressionManager.setValue('ih', m.I);
+<div id="result-overlay">
+    <div id="result-text" class="result-title"></div>
+    <button class="result-btn" onclick="location.reload()">再挑戦</button>
+    <button class="result-btn" style="border:none; font-size: 0.9rem;" onclick="location.href='x.html'">タイトルへ戻る</button>
+</div>
+
+<script>
+    // ... 前回の monsterData, 各変数 (pHP, eHP, mana 等) を継承 ...
+    const monsterData = {
+        "ミノタウロス": { cost: 3, atk: 5, hp: 5 }, "スライム": { cost: 1, atk: 1, hp: 4 },
+        "ゴブリン": { cost: 1, atk: 2, hp: 1 }, "オーク": { cost: 3, atk: 4, hp: 5 },
+        "スケルトン": { cost: 2, atk: 3, hp: 2 }, "バハムート": { cost: 6, atk: 12, hp: 10 }
+    };
+    let pHP = 30, eHP = 30, mana = 0, maxMana = 0, eMana = 0, eMaxMana = 0, isTurn = true, currentPhase = "MAIN", gameOver = false;
+
+    function addLog(msg, type = 'system') {
+        if(gameOver) return;
+        const log = document.getElementById('log-container');
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.innerText = type === 'system' ? `【 ${msg} 】` : msg;
+        log.insertBefore(entry, log.firstChild);
+        if (log.childNodes.length > 5) log.removeChild(log.lastChild);
+    }
+
+    // 決着時の演出関数
+    function showResult(isWin) {
+        gameOver = true;
+        const table = document.getElementById('table');
+        const overlay = document.getElementById('result-overlay');
+        const text = document.getElementById('result-text');
+
+        table.style.filter = "grayscale(1) brightness(0.5)";
+        overlay.style.display = "flex";
+        
+        if (isWin) {
+            text.innerText = "Victory";
+            text.className = "result-title win-text";
+            addLog("★ 勝利 ★", "system");
+        } else {
+            text.innerText = "Defeated";
+            text.className = "result-title lose-text";
+            addLog("💀 敗北 💀", "system");
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('p-hp-num').innerText = pHP;
+        document.getElementById('e-hp-num').innerText = eHP;
+        document.getElementById('p-hp-fill').style.width = (pHP/30*100) + "%";
+        document.getElementById('e-hp-fill').style.width = (eHP/30*100) + "%";
+        document.getElementById('mana-val').innerText = mana;
+        document.getElementById('max-mana').innerText = maxMana;
+        document.getElementById('e-mana-val').innerText = eMana;
+        document.getElementById('e-max-mana').innerText = eMaxMana;
+
+        if (!gameOver) {
+            if (eHP <= 0) showResult(true);
+            else if (pHP <= 0) showResult(false);
+        }
+    }
+
+    // ... createCard, handleCardClick, setPhase, nextStep, enemyTurnLogic, drawCard は前回同様 ...
+    function createCard(name, isPlayer) {
+        const card = document.createElement('div');
+        card.className = isPlayer ? 'card' : 'card card-back';
+        const data = monsterData[name];
+        if (isPlayer) {
+            card.innerHTML = `<div style="position:absolute; top:-5px; left:-5px; width:20px; height:20px; background:#0055ff; color:#fff; border-radius:50%; font-size:0.7rem; text-align:center; line-height:20px; z-index:10;">${data.cost}</div>
+                <div class="card-img"></div>
+                <div class="card-info"><div class="card-name">${name}</div><div style="display:flex; justify-content:space-around; margin-top:5px;">
+                <div class="stat-orb" style="color:#f44;">${data.atk}</div><div class="stat-orb" style="color:#2ecc71;">${data.hp}</div></div></div>`;
+            card.onclick = () => handleCardClick(card, data);
+        }
+        return card;
+    }
+
+    function handleCardClick(card, data) {
+        if (!isTurn || gameOver) return;
+        if (currentPhase === "MANA_CHARGE") {
+            maxMana = Math.min(maxMana + 1, 10); mana = maxMana;
+            card.remove(); updateUI(); setPhase("MAIN");
+        } else if (currentPhase === "MAIN") {
+            if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
+                mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
+            } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
+                eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
+            }
+        }
+    }
+
+    function setPhase(phase) {
+        currentPhase = phase;
+        addLog(phase === "MANA_CHARGE" ? "マナ補充" : "メインフェイズ", "system");
+        document.querySelectorAll('#player-hand .card').forEach(c => {
+            phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
+        });
+    }
+
+    async function nextStep() {
+        if (!isTurn || gameOver) return;
+        if (currentPhase === "MANA_CHARGE") setPhase("MAIN");
+        else {
+            isTurn = false; document.getElementById('turn-btn').innerText = "Wait";
+            await enemyTurnLogic();
+            if (!gameOver) {
+                isTurn = true; document.getElementById('turn-btn').innerText = "NEXT";
+                drawCard('player-hand', true); drawCard('enemy-hand', false);
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
+                setPhase("MANA_CHARGE"); updateUI();
+            }
+        }
+    }
+
+    async function enemyTurnLogic() {
+        await new Promise(r => setTimeout(r, 800));
+        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana; updateUI();
+        const activeCards = document.querySelectorAll('#enemy-field .card');
+        for (let c of activeCards) {
+            if(gameOver) return;
+            const name = c.querySelector('.card-name').innerText;
+            pHP = Math.max(0, pHP - monsterData[name].atk);
+            c.classList.add('used'); addLog(`☠ ${name}の攻撃!`, 'enemy'); updateUI();
+            await new Promise(r => setTimeout(r, 600));
+        }
+        const eHand = document.getElementById('enemy-hand');
+        if (eHand.children.length > 0) {
+            const name = Object.keys(monsterData)[Math.floor(Math.random() * 6)];
+            if (eMana >= monsterData[name].cost) {
+                eMana -= monsterData[name].cost; eHand.firstElementChild.remove();
+                document.getElementById('enemy-field').appendChild(createCard(name, true));
+                addLog(`⚠ 敵が${name}を召喚`, 'enemy'); updateUI();
+            }
+        }
+        await new Promise(r => setTimeout(r, 600));
+    }
+
+    function drawCard(targetId, isPlayer) {
+        const hand = document.getElementById(targetId);
+        if (hand.children.length < 5) {
+            const name = Object.keys(monsterData)[Math.floor(Math.random() * 6)];
+            hand.appendChild(createCard(name, isPlayer));
+        }
+    }
+
+    window.onload = () => {
+        for(let i=0; i<3; i++) { drawCard('player-hand', true); drawCard('enemy-hand', false); }
+        setPhase("MANA_CHARGE"); updateUI();
+    };
+</script>
+</body>
+</html>
             currentVrm.expressionManager.setValue('ou', m.U);
             currentVrm.expressionManager.setValue('ee', m.E);
             currentVrm.expressionManager.setValue('oh', m.O);
