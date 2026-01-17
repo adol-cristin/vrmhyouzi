@@ -4,53 +4,43 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VRM Tracking Fix</title>
-    <script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.154.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://unpkg.com/@pixiv/three-vrm@2.0.2/lib/three-vrm.js"></script>
-    <script src="https://unpkg.com/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.2/lib/three-vrm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.itools.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background: #00ff00; font-family: sans-serif; }
-        #ui { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 10px; width: calc(100% - 40px); color: white; box-sizing: border-box; }
-        #log { font-size: 12px; color: #00ff00; margin-top: 10px; background: #222; padding: 8px; border-radius: 4px; border: 1px solid #444; }
+        body { margin: 0; overflow: hidden; background: #00ff00; font-family: sans-serif; color: white; }
+        #ui { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 10px; width: calc(100% - 40px); box-sizing: border-box; }
         button, input { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 5px; border: none; }
-        button { background: #555; color: white; font-weight: bold; }
-        button.active { background: #007bff; cursor: pointer; }
-        #video { position: absolute; bottom: 10px; right: 10px; width: 80px; height: 60px; transform: scaleX(-1); border: 1px solid white; border-radius: 4px; }
+        button { background: #007bff; color: white; font-weight: bold; }
+        #log-area { font-size: 11px; color: #00ff00; margin-top: 10px; background: #222; padding: 5px; border: 1px solid #444; height: 80px; overflow-y: scroll; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <b>1. VRMファイルを選択</b>
+        <b>1. VRMを選択</b>
         <input type="file" id="fileInput" accept=".vrm">
-        <div id="status">⏳ ライブラリ読み込み中...</div>
-        <br>
+        <div id="status">⏳ ライブラリ読込中...</div>
         <b>2. カメラ起動</b>
-        <button id="startBtn" disabled>準備ができるまで待機</button>
-        <div id="log">ログ: 初期化開始</div>
+        <button id="startBtn">カメラを開始</button>
+        <div id="log-area">ログ: 起動待機中...</div>
     </div>
 
-    <video id="video" playsinline muted autoplay></video>
+    <video id="video" playsinline muted autoplay style="width:1px; height:1px; position:absolute;"></video>
     <div id="canvas-container"></div>
 
     <script>
-        const logElement = document.getElementById('log');
-        const statusElement = document.getElementById('status');
-        const startBtn = document.getElementById('startBtn');
-
-        function writeLog(msg) {
-            logElement.innerHTML = msg;
-            console.log(msg);
-        }
-
-        // --- Three.js セットアップ ---
+        const log = (m) => { document.getElementById('log-area').innerHTML += `<div>${m}</div>`; };
+        
+        // 1. Three.js設定
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x00ff00);
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20);
-        camera.position.set(0, 1.4, 1.5);
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 20);
+        camera.position.set(0, 1.4, 1.6);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -62,14 +52,74 @@
         // VRM読み込み
         document.getElementById('fileInput').onchange = (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-            writeLog("VRM読み込み中...");
+            if(!file) return;
+            log("VRM読込開始...");
             const url = URL.createObjectURL(file);
             loader.load(url, (gltf) => {
                 THREE.VRM.from(gltf).then((vrm) => {
-                    if (currentVrm) scene.remove(currentVrm.scene);
+                    if(currentVrm) scene.remove(currentVrm.scene);
                     currentVrm = vrm;
                     scene.add(vrm.scene);
+                    vrm.scene.rotation.y = Math.PI;
+                    log("✅ VRM表示OK");
+                    document.getElementById('status').innerText = "✅ VRM読込完了";
+                });
+            }, undefined, (e) => log("❌ VRM失敗: " + e));
+        };
+
+        // 2. MediaPipe設定 (ここが「準備中」の原因)
+        // 読み込み先を Google の公式サーバーではなく CDN に固定
+        const faceMesh = new FaceMesh({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+        }});
+        
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
+        faceMesh.onResults((results) => {
+            if (!currentVrm || !results.multiFaceLandmarks || !results.multiFaceLandmarks[0]) return;
+            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: document.getElementById('video') });
+            const head = currentVrm.humanoid.getRawBoneNode('head');
+            if(head) { head.rotation.y = rig.head.y; head.rotation.x = rig.head.x; }
+            const m = rig.mouth.shape;
+            currentVrm.expressionManager.setValue('aa', m.A);
+            currentVrm.expressionManager.setValue('ih', m.I);
+            currentVrm.expressionManager.setValue('ou', m.U);
+            currentVrm.expressionManager.setValue('ee', m.E);
+            currentVrm.expressionManager.setValue('oh', m.O);
+            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
+        });
+
+        // 3. カメラ開始ボタン
+        document.getElementById('startBtn').onclick = async () => {
+            log("カメラ・エンジン起動...");
+            try {
+                const video = document.getElementById('video');
+                // スマホのカメラを呼び出す標準的な方法
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+                video.srcObject = stream;
+                video.play();
+                
+                const cam = new Camera(video, {
+                    onFrame: async () => { await faceMesh.send({image: video}); }
+                });
+                cam.start();
+                log("✅ 全システム稼働中");
+                document.getElementById('ui').style.display = "none";
+            } catch (err) {
+                log("❌ 起動失敗: " + err);
+            }
+        };
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if(currentVrm) currentVrm.update(clock.getDelta());
+            renderer.render(scene, camera);
+        }
+        animate();
+        log("システム初期化完了");
+    </script>
+</body>
+</html>
                     vrm.scene.rotation.y = Math.PI;
                     statusElement.textContent = "✅ VRM読み込み完了！";
                     writeLog("準備完了。カメラを開始してください");
