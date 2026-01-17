@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pentacle Oracle TCG - Mode Selection</title>
+    <title>Pentacle Oracle TCG</title>
     <style>
         :root {
             --gold: #d4af37;
             --magical-glow: 0 0 15px rgba(212, 175, 55, 0.6);
+            /* アップロードされたペンタクル画像を背景に指定 */
+            --card-image: url('https://indices.googleusercontent.com/image_generation_content/0');
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { margin: 0; background: #000; color: #fcf6ba; font-family: 'Georgia', serif; height: 100vh; overflow: hidden; }
 
-        /* --- モード選択画面のスタイル --- */
+        /* --- モード選択画面 --- */
         #mode-select {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: radial-gradient(circle, #1a2a1a 0%, #000 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 10000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10000;
         }
         .select-title { font-size: 2.5rem; color: var(--gold); text-shadow: var(--magical-glow); margin-bottom: 40px; }
         .mode-btn {
@@ -26,78 +27,92 @@
             font-size: 1.2rem; border-radius: 10px; cursor: pointer; transition: 0.3s;
         }
         .mode-btn:hover { background: var(--gold); color: #000; box-shadow: var(--magical-glow); }
-        .mode-btn span { display: block; font-size: 0.8rem; margin-top: 5px; opacity: 0.8; }
 
-        /* --- ゲーム画面のスタイル --- */
+        /* --- ゲームテーブル --- */
         #table {
             height: 100vh; width: 100vw; display: none; flex-direction: column;
-            background: radial-gradient(circle at center, #003300 0%, #001100 60%, #000000 100%);
+            background: radial-gradient(circle at center, #0a1a0a 0%, #000000 100%);
             position: relative; transition: filter 1s ease;
         }
 
-        #log-container { position: absolute; left: 10px; top: 10px; width: 180px; height: 100px; background: rgba(0, 0, 0, 0.6); border-left: 3px solid var(--gold); z-index: 2000; padding: 8px; font-size: 0.7rem; display: flex; flex-direction: column-reverse; pointer-events: none; overflow: hidden; }
+        #log-container { position: absolute; left: 10px; top: 10px; width: 200px; height: 100px; background: rgba(0, 0, 0, 0.7); border-left: 3px solid var(--gold); z-index: 2000; padding: 8px; font-size: 0.75rem; display: flex; flex-direction: column-reverse; pointer-events: none; overflow: hidden; }
         .log-entry { margin-bottom: 4px; border-bottom: 1px solid rgba(212, 175, 55, 0.1); }
-        .log-player { color: #0ef; } .log-enemy { color: #f44; } .log-system { color: #fff; font-weight: bold; background: rgba(212, 175, 55, 0.2); padding: 2px 4px; border-radius: 2px; text-align: center; }
+        .log-player { color: #0ef; } .log-enemy { color: #f44; } .log-system { color: #fff; font-weight: bold; }
+
+        .hand-area { height: 20vh; display: flex; justify-content: center; align-items: center; padding: 0 10px; z-index: 1000; }
+        .field-row { width: 100%; height: 30vh; display: flex; justify-content: center; align-items: center; gap: 8px; }
+
+        /* --- カードデザイン (画像をメインに) --- */
+        .card { 
+            width: 80px; height: 112px; background: #1a1a1a; border: 1.5px solid var(--gold); 
+            border-radius: 6px; position: relative; transition: 0.3s; 
+            flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.8); overflow: hidden;
+        }
+        .card.used { transform: rotate(10deg) scale(0.9) !important; filter: brightness(0.3); }
         
-        .hand-area { height: 18vh; display: flex; justify-content: center; align-items: center; padding: 0 20px; z-index: 1000; }
-        .field-row { width: 100%; height: 35vh; display: flex; justify-content: center; align-items: center; gap: 10px; }
-        
-        .card { width: 70px; height: 98px; background: #111; border: 1.5px solid var(--gold); border-radius: 6px; position: relative; transition: all 0.3s ease; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
-        .card.used { transform: rotate(90deg) !important; filter: brightness(0.5); }
-        .card-img { width: 100%; height: 45%; background: #222; border-bottom: 1px solid var(--gold); }
-        .card-info { padding: 2px; text-align: center; background: rgba(0,0,0,0.6); height: 55%; }
-        .card-name { font-size: 0.55rem; font-weight: bold; color: #fff; }
-        .stat-orb { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--gold); font-size: 0.6rem; text-align: center; background: #000; line-height: 16px; }
-        
-        .hud { position: absolute; left: 10px; width: 130px; background: rgba(0,0,0,0.85); padding: 6px; border: 1px solid var(--gold); border-radius: 8px; z-index: 700; }
-        .enemy-hud { top: 20vh; } .player-hud { bottom: 20vh; }
-        .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+        .card-img { 
+            width: 100%; height: 100%; 
+            background-image: var(--card-image);
+            background-size: cover;
+            background-position: center;
+            position: absolute; top: 0; left: 0;
+        }
+
+        .card-overlay {
+            position: absolute; bottom: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.8) 90%);
+            display: flex; flex-direction: column; justify-content: space-between; padding: 4px;
+        }
+
+        .card-cost { width: 18px; height: 18px; background: #0055ff; color: #fff; border-radius: 50%; font-size: 0.7rem; text-align: center; line-height: 18px; border: 1px solid #fff; }
+        .card-name { font-size: 0.55rem; font-weight: bold; color: #fff; text-align: center; text-shadow: 1px 1px 2px #000; }
+        .card-stats { display: flex; justify-content: space-between; }
+        .stat-orb { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--gold); font-size: 0.6rem; text-align: center; background: rgba(0,0,0,0.8); line-height: 16px; font-weight: bold; }
+
+        /* --- HUD & ボタン --- */
+        .hud { position: absolute; left: 10px; width: 140px; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid var(--gold); border-radius: 8px; z-index: 700; box-shadow: var(--magical-glow); }
+        .enemy-hud { top: 22vh; } .player-hud { bottom: 22vh; }
+        .hp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin: 4px 0; }
         .hp-fill { height: 100%; transition: width 0.5s; }
         
-        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #000); color: var(--gold); border: 2px solid var(--gold); padding: 15px 10px; border-radius: 10px; font-weight: bold; z-index: 1000; }
-        .mana-charge-target { border-color: #0ef; transform: translateY(-10px); }
+        #turn-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(#4a148c, #2a0a4a); color: var(--gold); border: 2px solid var(--gold); padding: 18px 12px; border-radius: 50%; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: var(--magical-glow); }
+        .mana-charge-target { border-color: #0ef; transform: translateY(-15px); box-shadow: 0 0 15px #0ef; }
 
-        /* --- リザルト画面 --- */
         #result-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); display: none;
-            flex-direction: column; justify-content: center; align-items: center;
-            z-index: 9999; backdrop-filter: blur(5px);
+            background: rgba(0, 0, 0, 0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;
         }
-        .result-title { font-size: 3rem; font-weight: bold; margin-bottom: 20px; letter-spacing: 5px; animation: titleDrop 0.8s; }
+        .result-title { font-size: 3rem; margin-bottom: 20px; }
         .win-text { color: var(--gold); text-shadow: 0 0 20px var(--gold); }
-        .lose-text { color: #f44; text-shadow: 0 0 20px #f44; }
-        @keyframes titleDrop { from { transform: scale(5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .result-btn { margin-top: 15px; padding: 12px 30px; background: none; border: 2px solid var(--gold); color: var(--gold); border-radius: 50px; cursor: pointer; transition: 0.3s; width: 200px; }
-        .result-btn:hover { background: var(--gold); color: #000; }
+        .lose-text { color: #f44; }
     </style>
 </head>
 <body>
 
 <div id="mode-select">
-    <div class="select-title">モード選択</div>
-    <button class="mode-btn" onclick="startGame(1)">Level 1<span>Enemy HP: 15 / Beginner</span></button>
-    <button class="mode-btn" onclick="startGame(2)">Level 2<span>Enemy HP: 30 / Standard</span></button>
-    <button class="mode-btn" onclick="startGame(3)">Level 3<span>Enemy HP: 50 / Expert</span></button>
+    <div class="select-title">Pentacle Oracle</div>
+    <button class="mode-btn" onclick="startGame(1)">Beginner (HP 15)</button>
+    <button class="mode-btn" onclick="startGame(2)">Standard (HP 30)</button>
+    <button class="mode-btn" onclick="startGame(3)">Expert (HP 50)</button>
 </div>
 
 <div id="table">
     <div id="log-container"></div>
-    <div id="enemy-hand" class="hand-area" style="align-items: flex-start;"></div>
+    <div id="enemy-hand" class="hand-area"></div>
     
     <div class="hud enemy-hud">
-        <div style="font-size:0.6rem; color:#f44;">ENEMY: <span id="e-hp-num">30</span></div>
+        <div style="font-size:0.65rem; color:#f44;">ENEMY HP: <span id="e-hp-num">30</span></div>
         <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#f44; width:100%;"></div></div>
-        <div style="font-size:0.55rem; margin-top:4px; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
+        <div style="font-size:0.6rem; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
     </div>
 
     <div id="enemy-field" class="field-row"></div>
     <div id="player-field" class="field-row"></div>
 
     <div class="hud player-hud">
-        <div style="font-size:0.6rem; color:#0ef;">PLAYER: <span id="p-hp-num">30</span></div>
+        <div style="font-size:0.65rem; color:#0ef;">PLAYER HP: <span id="p-hp-num">30</span></div>
         <div class="hp-bar"><div id="p-hp-fill" class="hp-fill" style="background:#2ecc71; width:100%;"></div></div>
-        <div style="font-size:0.55rem; margin-top:4px; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
+        <div style="font-size:0.6rem; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
     </div>
 
     <button id="turn-btn" onclick="nextStep()">NEXT</button>
@@ -106,89 +121,118 @@
 
 <div id="result-overlay">
     <div id="result-text" class="result-title"></div>
-    <button class="result-btn" onclick="resetToSelection()">モード選択へ</button>
+    <button class="mode-btn" onclick="location.reload()">Return</button>
 </div>
 
 <script>
     const monsterData = {
         "ミノタウロス": { cost: 3, atk: 5, hp: 5 }, 
-        "スライム": { cost: 1, atk: 1, hp: 4 },
-        "ゴブリン": { cost: 1, atk: 2, hp: 1 }, 
-        "オーク": { cost: 3, atk: 4, hp: 5 },
-        "スケルトン": { cost: 2, atk: 3, hp: 2 }, 
-        "バハムート": { cost: 6, atk: 12, hp: 10 }
+        "スライム":     { cost: 1, atk: 1, hp: 4 },
+        "ゴブリン":     { cost: 1, atk: 2, hp: 1 }, 
+        "オーク":       { cost: 3, atk: 4, hp: 5 },
+        "スケルトン":   { cost: 2, atk: 3, hp: 2 }, 
+        "バハムート":   { cost: 6, atk: 12, hp: 10 },
+        "司祭":         { cost: 4, atk: 2, hp: 8 }
     };
 
     let pHP = 30, eHP = 30, initialEnemyHP = 30;
     let mana = 0, maxMana = 0, eMana = 0, eMaxMana = 0;
     let isTurn = true, currentPhase = "MAIN", gameOver = false;
-    let currentLevel = 1;
 
-    // ゲーム開始処理
     function startGame(lv) {
-        currentLevel = lv;
-        gameOver = false;
-        pHP = 30;
-        // レベルに応じて敵HPを変更
-        if(lv === 1) initialEnemyHP = 15;
-        else if(lv === 2) initialEnemyHP = 30;
-        else initialEnemyHP = 50;
-        
-        eHP = initialEnemyHP;
-        mana = 0; maxMana = 0; eMana = 0; eMaxMana = 0;
-        isTurn = true;
-
-        // UI表示切り替え
+        pHP = 30; initialEnemyHP = (lv === 1) ? 15 : (lv === 2) ? 30 : 50;
+        eHP = initialEnemyHP; mana = 0; maxMana = 0;
         document.getElementById('mode-select').style.display = 'none';
         document.getElementById('table').style.display = 'flex';
-        document.getElementById('table').style.filter = "none";
-        document.getElementById('result-overlay').style.display = 'none';
-        document.getElementById('turn-btn').innerText = "NEXT";
-
-        // 初期化
-        document.getElementById('player-hand').innerHTML = '';
-        document.getElementById('enemy-hand').innerHTML = '';
-        document.getElementById('player-field').innerHTML = '';
-        document.getElementById('enemy-field').innerHTML = '';
-        document.getElementById('log-container').innerHTML = '';
-
         for(let i=0; i<3; i++) { drawCard('player-hand', true); drawCard('enemy-hand', false); }
         setPhase("MANA_CHARGE");
         updateUI();
-        addLog(`Level ${lv} Start!`, "system");
+        addLog(`Level ${lv} Start`, "system");
     }
 
-    // 選択画面へ戻る
-    function resetToSelection() {
-        document.getElementById('mode-select').style.display = 'flex';
-        document.getElementById('table').style.display = 'none';
-        document.getElementById('result-overlay').style.display = 'none';
+    function createCard(name, isPlayer) {
+        const data = monsterData[name];
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <div class="card-img"></div>
+            <div class="card-overlay">
+                <div class="card-cost">${data.cost}</div>
+                <div class="card-name">${name}</div>
+                <div class="card-stats">
+                    <div class="stat-orb" style="color:#f44;">${data.atk}</div>
+                    <div class="stat-orb" style="color:#2ecc71;">${data.hp}</div>
+                </div>
+            </div>`;
+        if (isPlayer) card.onclick = () => handleCardClick(card, data);
+        return card;
     }
 
-    function addLog(msg, type = 'system') {
-        const log = document.getElementById('log-container');
-        const entry = document.createElement('div');
-        entry.className = `log-entry log-${type}`;
-        entry.innerText = msg;
-        log.insertBefore(entry, log.firstChild);
-        if (log.childNodes.length > 5) log.removeChild(log.lastChild);
+    function handleCardClick(card, data) {
+        if (!isTurn || gameOver) return;
+        if (currentPhase === "MANA_CHARGE") {
+            maxMana = Math.min(maxMana + 1, 10); mana = maxMana;
+            card.remove(); updateUI(); setPhase("MAIN");
+        } else if (currentPhase === "MAIN") {
+            if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
+                mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
+                addLog(`${name} Summoned`, "player");
+            } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
+                eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
+                addLog(`Attack: ${data.atk}`, "player");
+            }
+        }
     }
 
-    function showResult(isWin) {
-        gameOver = true;
-        const table = document.getElementById('table');
-        const overlay = document.getElementById('result-overlay');
-        const text = document.getElementById('result-text');
+    function setPhase(phase) {
+        currentPhase = phase;
+        addLog(phase === "MANA_CHARGE" ? "Mana Charge Phase" : "Main Phase", "system");
+        document.querySelectorAll('#player-hand .card').forEach(c => {
+            phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
+        });
+    }
 
-        table.style.filter = "grayscale(1) brightness(0.5)";
-        overlay.style.display = "flex";
+    async function nextStep() {
+        if (!isTurn || gameOver) return;
+        if (currentPhase === "MANA_CHARGE") return;
+        isTurn = false; document.getElementById('turn-btn').innerText = "WAIT";
+        await enemyTurnLogic();
+        if (!gameOver) {
+            isTurn = true; document.getElementById('turn-btn').innerText = "NEXT";
+            drawCard('player-hand', true); drawCard('enemy-hand', false);
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
+            setPhase("MANA_CHARGE"); updateUI();
+        }
+    }
+
+    async function enemyTurnLogic() {
+        addLog("Enemy Turn", "enemy");
+        await new Promise(r => setTimeout(r, 1000));
+        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana;
         
-        if (isWin) {
-            text.innerText = "Victory";
-            text.className = "result-title win-text";
-        } else {
-            text.innerText = "Defeated";
-            text.className = "result-title lose-text";
+        const activeCards = document.querySelectorAll('#enemy-field .card');
+        for (let c of activeCards) {
+            const name = c.querySelector('.card-name').innerText;
+            pHP = Math.max(0, pHP - monsterData[name].atk);
+            c.classList.add('used'); updateUI();
+            await new Promise(r => setTimeout(r, 600));
+        }
+
+        const names = Object.keys(monsterData);
+        const name = names[Math.floor(Math.random() * names.length)];
+        if (eMana >= monsterData[name].cost) {
+            eMana -= monsterData[name].cost;
+            document.getElementById('enemy-field').appendChild(createCard(name, false));
+            updateUI();
+        }
+    }
+
+    function drawCard(targetId, isPlayer) {
+        const hand = document.getElementById(targetId);
+        if (hand.children.length < 5) {
+            const names = Object.keys(monsterData);
+            const name = names[Math.floor(Math.random() * names.length)];
+            hand.appendChild(createCard(name, isPlayer));
         }
     }
 
@@ -201,562 +245,23 @@
         document.getElementById('max-mana').innerText = maxMana;
         document.getElementById('e-mana-val').innerText = eMana;
         document.getElementById('e-max-mana').innerText = eMaxMana;
-
-        if (!gameOver) {
-            if (eHP <= 0) showResult(true);
-            else if (pHP <= 0) showResult(false);
-        }
+        if (eHP <= 0) showResult(true); else if (pHP <= 0) showResult(false);
     }
 
-    function createCard(name, isPlayer) {
-        const card = document.createElement('div');
-        card.className = 'card';
-        const data = monsterData[name];
-        card.innerHTML = `<div style="position:absolute; top:-5px; left:-5px; width:20px; height:20px; background:#0055ff; color:#fff; border-radius:50%; font-size:0.7rem; text-align:center; line-height:20px; z-index:10;">${data.cost}</div>
-            <div class="card-img"></div>
-            <div class="card-info"><div class="card-name">${name}</div><div style="display:flex; justify-content:space-around; margin-top:5px;">
-            <div class="stat-orb" style="color:#f44;">${data.atk}</div><div class="stat-orb" style="color:#2ecc71;">${data.hp}</div></div></div>`;
-        
-        if (isPlayer) {
-            card.onclick = () => handleCardClick(card, data);
-        } else {
-            card.style.background = "linear-gradient(#444, #111)"; // 敵のカードは少し暗く
-        }
-        return card;
-    }
-
-    function handleCardClick(card, data) {
-        if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") {
-            maxMana = Math.min(maxMana + 1, 10); mana = maxMana;
-            card.remove(); updateUI(); setPhase("MAIN");
-        } else if (currentPhase === "MAIN") {
-            if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
-                mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
-            } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
-                eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
-            }
-        }
-    }
-
-    function setPhase(phase) {
-        currentPhase = phase;
-        addLog(phase === "MANA_CHARGE" ? ">> マナチャージ" : ">> メインフェイズ", "system");
-        document.querySelectorAll('#player-hand .card').forEach(c => {
-            phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
-        });
-    }
-
-    async function nextStep() {
-        if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") {
-            addLog("カードをマナにしてください", "system");
-            return;
-        }
-        isTurn = false; 
-        document.getElementById('turn-btn').innerText = "WAIT";
-        await enemyTurnLogic();
-        if (!gameOver) {
-            isTurn = true; 
-            document.getElementById('turn-btn').innerText = "NEXT";
-            drawCard('player-hand', true); drawCard('enemy-hand', false);
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
-            setPhase("MANA_CHARGE"); 
-            updateUI();
-        }
-    }
-
-    async function enemyTurnLogic() {
-        addLog("Enemy Turn...", "system");
-        await new Promise(r => setTimeout(r, 800));
-        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana; updateUI();
-
-        // 攻撃
-        const activeCards = document.querySelectorAll('#enemy-field .card');
-        for (let c of activeCards) {
-            if(gameOver) return;
-            const name = c.querySelector('.card-name').innerText;
-            pHP = Math.max(0, pHP - monsterData[name].atk);
-            c.classList.add('used'); addLog(`敵の攻撃: ${name}`, 'enemy'); updateUI();
-            await new Promise(r => setTimeout(r, 600));
-        }
-
-        // 召喚（ランダム）
-        const names = Object.keys(monsterData);
-        const name = names[Math.floor(Math.random() * names.length)];
-        if (eMana >= monsterData[name].cost) {
-            eMana -= monsterData[name].cost;
-            document.getElementById('enemy-field').appendChild(createCard(name, false));
-            addLog(`敵の召喚: ${name}`, 'enemy'); updateUI();
-        }
-        await new Promise(r => setTimeout(r, 600));
-    }
-
-    function drawCard(targetId, isPlayer) {
-        const hand = document.getElementById(targetId);
-        if (hand.children.length < 5) {
-            const names = Object.keys(monsterData);
-            const name = names[Math.floor(Math.random() * names.length)];
-            hand.appendChild(createCard(name, isPlayer));
-        }
-    }
-</script>
-</body>
-</html>
-        .result-btn:hover { background: var(--gold); color: #000; box-shadow: 0 0 20px var(--gold); }
-    </style>
-</head>
-<body>
-
-<div id="table">
-    <button class="back-btn" onclick="location.href='x.html'">🚪 戻る</button>
-    <div id="log-container"></div>
-    <div id="enemy-hand" class="hand-area" style="align-items: flex-start;"></div>
-    
-    <div class="hud enemy-hud">
-        <div style="font-size:0.6rem; color:#f44;">ENEMY: <span id="e-hp-num">30</span></div>
-        <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#f44; width:100%;"></div></div>
-        <div style="font-size:0.55rem; margin-top:4px; color:#f44;">Mana: <span id="e-mana-val">0</span>/<span id="e-max-mana">0</span></div>
-    </div>
-
-    <div id="enemy-field" class="field-row"></div>
-    <div id="player-field" class="field-row"></div>
-
-    <div class="hud player-hud">
-        <div style="font-size:0.6rem; color:#0ef;">PLAYER: <span id="p-hp-num">30</span></div>
-        <div class="hp-bar"><div id="p-hp-fill" class="hp-fill" style="background:#2ecc71; width:100%;"></div></div>
-        <div style="font-size:0.55rem; margin-top:4px; color:#0ef;">Mana: <span id="mana-val">0</span>/<span id="max-mana">0</span></div>
-    </div>
-
-    <button id="turn-btn" onclick="nextStep()">NEXT</button>
-    <div id="player-hand" class="hand-area"></div>
-</div>
-
-<div id="result-overlay">
-    <div id="result-text" class="result-title"></div>
-    <button class="result-btn" onclick="location.reload()">再挑戦</button>
-    <button class="result-btn" style="border:none; font-size: 0.9rem;" onclick="location.href='x.html'">タイトルへ戻る</button>
-</div>
-
-<script>
-    // ... 前回の monsterData, 各変数 (pHP, eHP, mana 等) を継承 ...
-    const monsterData = {
-        "ミノタウロス": { cost: 3, atk: 5, hp: 5 }, "スライム": { cost: 1, atk: 1, hp: 4 },
-        "ゴブリン": { cost: 1, atk: 2, hp: 1 }, "オーク": { cost: 3, atk: 4, hp: 5 },
-        "スケルトン": { cost: 2, atk: 3, hp: 2 }, "バハムート": { cost: 6, atk: 12, hp: 10 }
-    };
-    let pHP = 30, eHP = 30, mana = 0, maxMana = 0, eMana = 0, eMaxMana = 0, isTurn = true, currentPhase = "MAIN", gameOver = false;
-
-    function addLog(msg, type = 'system') {
-        if(gameOver) return;
+    function addLog(msg, type) {
         const log = document.getElementById('log-container');
         const entry = document.createElement('div');
         entry.className = `log-entry log-${type}`;
-        entry.innerText = type === 'system' ? `【 ${msg} 】` : msg;
+        entry.innerText = msg;
         log.insertBefore(entry, log.firstChild);
-        if (log.childNodes.length > 5) log.removeChild(log.lastChild);
     }
 
-    // 決着時の演出関数
     function showResult(isWin) {
         gameOver = true;
-        const table = document.getElementById('table');
-        const overlay = document.getElementById('result-overlay');
-        const text = document.getElementById('result-text');
-
-        table.style.filter = "grayscale(1) brightness(0.5)";
-        overlay.style.display = "flex";
-        
-        if (isWin) {
-            text.innerText = "Victory";
-            text.className = "result-title win-text";
-            addLog("★ 勝利 ★", "system");
-        } else {
-            text.innerText = "Defeated";
-            text.className = "result-title lose-text";
-            addLog("💀 敗北 💀", "system");
-        }
+        document.getElementById('result-overlay').style.display = "flex";
+        document.getElementById('result-text').innerText = isWin ? "VICTORY" : "DEFEATED";
+        document.getElementById('result-text').className = `result-title ${isWin ? 'win-text' : 'lose-text'}`;
     }
-
-    function updateUI() {
-        document.getElementById('p-hp-num').innerText = pHP;
-        document.getElementById('e-hp-num').innerText = eHP;
-        document.getElementById('p-hp-fill').style.width = (pHP/30*100) + "%";
-        document.getElementById('e-hp-fill').style.width = (eHP/30*100) + "%";
-        document.getElementById('mana-val').innerText = mana;
-        document.getElementById('max-mana').innerText = maxMana;
-        document.getElementById('e-mana-val').innerText = eMana;
-        document.getElementById('e-max-mana').innerText = eMaxMana;
-
-        if (!gameOver) {
-            if (eHP <= 0) showResult(true);
-            else if (pHP <= 0) showResult(false);
-        }
-    }
-
-    // ... createCard, handleCardClick, setPhase, nextStep, enemyTurnLogic, drawCard は前回同様 ...
-    function createCard(name, isPlayer) {
-        const card = document.createElement('div');
-        card.className = isPlayer ? 'card' : 'card card-back';
-        const data = monsterData[name];
-        if (isPlayer) {
-            card.innerHTML = `<div style="position:absolute; top:-5px; left:-5px; width:20px; height:20px; background:#0055ff; color:#fff; border-radius:50%; font-size:0.7rem; text-align:center; line-height:20px; z-index:10;">${data.cost}</div>
-                <div class="card-img"></div>
-                <div class="card-info"><div class="card-name">${name}</div><div style="display:flex; justify-content:space-around; margin-top:5px;">
-                <div class="stat-orb" style="color:#f44;">${data.atk}</div><div class="stat-orb" style="color:#2ecc71;">${data.hp}</div></div></div>`;
-            card.onclick = () => handleCardClick(card, data);
-        }
-        return card;
-    }
-
-    function handleCardClick(card, data) {
-        if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") {
-            maxMana = Math.min(maxMana + 1, 10); mana = maxMana;
-            card.remove(); updateUI(); setPhase("MAIN");
-        } else if (currentPhase === "MAIN") {
-            if (card.parentElement.id === 'player-hand' && mana >= data.cost) {
-                mana -= data.cost; document.getElementById('player-field').appendChild(card); updateUI();
-            } else if (card.parentElement.id === 'player-field' && !card.classList.contains('used')) {
-                eHP = Math.max(0, eHP - data.atk); card.classList.add('used'); updateUI();
-            }
-        }
-    }
-
-    function setPhase(phase) {
-        currentPhase = phase;
-        addLog(phase === "MANA_CHARGE" ? "マナ補充" : "メインフェイズ", "system");
-        document.querySelectorAll('#player-hand .card').forEach(c => {
-            phase === "MANA_CHARGE" ? c.classList.add('mana-charge-target') : c.classList.remove('mana-charge-target');
-        });
-    }
-
-    async function nextStep() {
-        if (!isTurn || gameOver) return;
-        if (currentPhase === "MANA_CHARGE") setPhase("MAIN");
-        else {
-            isTurn = false; document.getElementById('turn-btn').innerText = "Wait";
-            await enemyTurnLogic();
-            if (!gameOver) {
-                isTurn = true; document.getElementById('turn-btn').innerText = "NEXT";
-                drawCard('player-hand', true); drawCard('enemy-hand', false);
-                document.querySelectorAll('.card').forEach(c => c.classList.remove('used'));
-                setPhase("MANA_CHARGE"); updateUI();
-            }
-        }
-    }
-
-    async function enemyTurnLogic() {
-        await new Promise(r => setTimeout(r, 800));
-        eMaxMana = Math.min(eMaxMana + 1, 10); eMana = eMaxMana; updateUI();
-        const activeCards = document.querySelectorAll('#enemy-field .card');
-        for (let c of activeCards) {
-            if(gameOver) return;
-            const name = c.querySelector('.card-name').innerText;
-            pHP = Math.max(0, pHP - monsterData[name].atk);
-            c.classList.add('used'); addLog(`☠ ${name}の攻撃!`, 'enemy'); updateUI();
-            await new Promise(r => setTimeout(r, 600));
-        }
-        const eHand = document.getElementById('enemy-hand');
-        if (eHand.children.length > 0) {
-            const name = Object.keys(monsterData)[Math.floor(Math.random() * 6)];
-            if (eMana >= monsterData[name].cost) {
-                eMana -= monsterData[name].cost; eHand.firstElementChild.remove();
-                document.getElementById('enemy-field').appendChild(createCard(name, true));
-                addLog(`⚠ 敵が${name}を召喚`, 'enemy'); updateUI();
-            }
-        }
-        await new Promise(r => setTimeout(r, 600));
-    }
-
-    function drawCard(targetId, isPlayer) {
-        const hand = document.getElementById(targetId);
-        if (hand.children.length < 5) {
-            const name = Object.keys(monsterData)[Math.floor(Math.random() * 6)];
-            hand.appendChild(createCard(name, isPlayer));
-        }
-    }
-
-    window.onload = () => {
-        for(let i=0; i<3; i++) { drawCard('player-hand', true); drawCard('enemy-hand', false); }
-        setPhase("MANA_CHARGE"); updateUI();
-    };
 </script>
 </body>
 </html>
-            currentVrm.expressionManager.setValue('ou', m.U);
-            currentVrm.expressionManager.setValue('ee', m.E);
-            currentVrm.expressionManager.setValue('oh', m.O);
-            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
-        });
-
-        // ボタンは最初から押せるように
-        document.getElementById('startBtn').onclick = async () => {
-            log("カメラを呼び出し中...");
-            try {
-                const video = document.getElementById('video');
-                const cam = new Camera(video, {
-                    onFrame: async () => { await faceMesh.send({image: video}); },
-                    width: 640, height: 480
-                });
-                await cam.start();
-                log("✅ 稼働中！");
-                document.getElementById('ui').style.display = "none";
-            } catch (err) {
-                log("エラー: " + err);
-                alert("カメラを許可してください");
-            }
-        };
-
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if(currentVrm) currentVrm.update(clock.getDelta());
-            renderer.render(scene, camera);
-        }
-        animate();
-        log("準備完了。モデルを選んでください。");
-    </script>
-</body>
-</html>
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-        }});
-        
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
-        faceMesh.onResults((results) => {
-            if (!currentVrm || !results.multiFaceLandmarks || !results.multiFaceLandmarks[0]) return;
-            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: document.getElementById('video') });
-            const head = currentVrm.humanoid.getRawBoneNode('head');
-            if(head) { head.rotation.y = rig.head.y; head.rotation.x = rig.head.x; }
-            const m = rig.mouth.shape;
-            currentVrm.expressionManager.setValue('aa', m.A);
-            currentVrm.expressionManager.setValue('ih', m.I);
-            currentVrm.expressionManager.setValue('ou', m.U);
-            currentVrm.expressionManager.setValue('ee', m.E);
-            currentVrm.expressionManager.setValue('oh', m.O);
-            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
-        });
-
-        // 3. カメラ開始ボタン
-        document.getElementById('startBtn').onclick = async () => {
-            log("カメラ・エンジン起動...");
-            try {
-                const video = document.getElementById('video');
-                // スマホのカメラを呼び出す標準的な方法
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-                video.srcObject = stream;
-                video.play();
-                
-                const cam = new Camera(video, {
-                    onFrame: async () => { await faceMesh.send({image: video}); }
-                });
-                cam.start();
-                log("✅ 全システム稼働中");
-                document.getElementById('ui').style.display = "none";
-            } catch (err) {
-                log("❌ 起動失敗: " + err);
-            }
-        };
-
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if(currentVrm) currentVrm.update(clock.getDelta());
-            renderer.render(scene, camera);
-        }
-        animate();
-        log("システム初期化完了");
-    </script>
-</body>
-</html>
-                    vrm.scene.rotation.y = Math.PI;
-                    statusElement.textContent = "✅ VRM読み込み完了！";
-                    writeLog("準備完了。カメラを開始してください");
-                });
-            });
-        };
-
-        // MediaPipe初期化
-        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
-        
-        faceMesh.onResults((results) => {
-            if (!currentVrm || !results.multiFaceLandmarks || !results.multiFaceLandmarks[0]) return;
-            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: document.getElementById('video') });
-            const head = currentVrm.humanoid.getRawBoneNode('head');
-            if (head) {
-                head.rotation.y = rig.head.y;
-                head.rotation.x = rig.head.x;
-            }
-            const m = rig.mouth.shape;
-            currentVrm.expressionManager.setValue('aa', m.A);
-            currentVrm.expressionManager.setValue('ih', m.I);
-            currentVrm.expressionManager.setValue('ou', m.U);
-            currentVrm.expressionManager.setValue('ee', m.E);
-            currentVrm.expressionManager.setValue('oh', m.O);
-            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
-        });
-
-        // 読み込み完了検知
-        window.onload = () => {
-            writeLog("すべてのリソースが読み込まれました。");
-            startBtn.disabled = false;
-            startBtn.classList.add('active');
-            startBtn.textContent = "カメラを開始する";
-        };
-
-        // カメラ開始
-        startBtn.onclick = async () => {
-            writeLog("カメラアクセス許可を確認中...");
-            try {
-                const cam = new Camera(document.getElementById('video'), {
-                    onFrame: async () => { await faceMesh.send({image: document.getElementById('video')}); },
-                    width: 640, height: 480
-                });
-                await cam.start();
-                writeLog("トラッキング中...");
-                document.getElementById('ui').style.display = "none";
-            } catch (err) {
-                writeLog("エラー: " + err);
-            }
-        };
-
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if (currentVrm) currentVrm.update(clock.getDelta());
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
-</body>
-</html>
-                    statusElement.textContent = "VRM準備完了！";
-                    log("VRM Load Success");
-                }).catch(err => log("VRM Error: " + err));
-            }, undefined, (err) => log("Loader Error: " + err));
-        });
-
-        // --- Face Mesh ---
-        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
-        faceMesh.onResults((results) => {
-            if (!currentVrm || !results.multiFaceLandmarks || !results.multiFaceLandmarks[0]) return;
-            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: videoElement });
-            const head = currentVrm.humanoid.getRawBoneNode('head');
-            if (head) {
-                head.rotation.y = rig.head.y;
-                head.rotation.x = rig.head.x;
-            }
-            const s = rig.mouth.shape;
-            currentVrm.expressionManager.setValue('aa', s.A);
-            currentVrm.expressionManager.setValue('ih', s.I);
-            currentVrm.expressionManager.setValue('ou', s.U);
-            currentVrm.expressionManager.setValue('ee', s.E);
-            currentVrm.expressionManager.setValue('oh', s.O);
-            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
-        });
-
-        // --- Start ---
-        document.getElementById('startBtn').addEventListener('click', async () => {
-            log("Camera starting...");
-            try {
-                const cameraTracker = new Camera(videoElement, {
-                    onFrame: async () => { await faceMesh.send({image: videoElement}); },
-                    width: 640, height: 480
-                });
-                await cameraTracker.start();
-                log("Camera active.");
-                document.getElementById('ui').style.display = "none";
-            } catch (err) {
-                log("Camera Failed: " + err);
-                alert("カメラが起動できません。設定で許可されているか、他のアプリでカメラを使っていないか確認してください。");
-            }
-        });
-
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if (currentVrm) currentVrm.update(clock.getDelta());
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
-</body>
-</html>
-        scene.add(light, new THREE.AmbientLight(0xffffff, 0.7));
-
-        // --- VRM読み込み ---
-        const loader = new THREE.GLTFLoader();
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const url = URL.createObjectURL(file);
-            loader.load(url, (gltf) => {
-                THREE.VRM.from(gltf).then((vrm) => {
-                    if (currentVrm) scene.remove(currentVrm.scene);
-                    currentVrm = vrm;
-                    scene.add(vrm.scene);
-                    vrm.scene.rotation.y = Math.PI;
-                    statusElement.textContent = "準備完了！";
-                });
-            });
-        });
-
-        // --- Face Mesh ---
-        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
-        faceMesh.onResults((results) => {
-            if (!currentVrm || !results.multiFaceLandmarks[0]) return;
-            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: videoElement });
-            
-            const head = currentVrm.humanoid.getRawBoneNode('head');
-            if (head) {
-                head.rotation.y = rig.head.y;
-                head.rotation.x = rig.head.x;
-                head.rotation.z = rig.head.z;
-            }
-            const s = rig.mouth.shape;
-            currentVrm.expressionManager.setValue('aa', s.A);
-            currentVrm.expressionManager.setValue('ih', s.I);
-            currentVrm.expressionManager.setValue('ou', s.U);
-            currentVrm.expressionManager.setValue('ee', s.E);
-            currentVrm.expressionManager.setValue('oh', s.O);
-            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
-        });
-
-        // --- ボタンクリックで開始 ＆ UIを隠す ---
-        document.getElementById('startBtn').addEventListener('click', async () => {
-            try {
-                const cameraTracker = new Camera(videoElement, {
-                    onFrame: async () => { await faceMesh.send({image: videoElement}); },
-                    width: 640, height: 480
-                });
-                await cameraTracker.start();
-                
-                // UIパネルを隠す
-                uiElement.style.opacity = "0";
-                setTimeout(() => { uiElement.style.display = "none"; }, 500);
-                
-            } catch (err) {
-                alert("エラー: " + err);
-            }
-        });
-
-        // 隠れたUIを再表示する機能（画面のどこかをタップ）
-        window.addEventListener('dblclick', () => {
-            uiElement.style.display = "block";
-            uiElement.style.opacity = "1";
-        });
-
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if (currentVrm) currentVrm.update(clock.getDelta());
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
-</body>
-</html>
-
