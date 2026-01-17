@@ -3,21 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VRM Green Screen Fix</title>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.2/lib/three-vrm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.rawgit.com/yeemachine/kalidokit/master/dist/kalidokit.itools.js"></script>
+    <title>VRM Tracking Fix</title>
+    <script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.154.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/@pixiv/three-vrm@2.0.2/lib/three-vrm.js"></script>
+    <script src="https://unpkg.com/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.itools.js"></script>
+
     <style>
         body { margin: 0; overflow: hidden; background: #00ff00; font-family: sans-serif; }
-        #ui { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; width: calc(100% - 50px); color: white; }
-        #video { position: absolute; bottom: 10px; right: 10px; width: 80px; height: 60px; border: 1px solid white; z-index: 10; transform: scaleX(-1); border-radius: 5px; background: #000; }
-        input, button { font-size: 16px; margin: 8px 0; padding: 12px; width: 100%; border-radius: 5px; box-sizing: border-box; }
-        button { background: #007bff; color: white; border: none; font-weight: bold; }
-        #error-log { color: #ff4444; font-size: 12px; margin-top: 10px; white-space: pre-wrap; }
-        #status { color: #00ff00; font-size: 14px; font-weight: bold; }
+        #ui { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 10px; width: calc(100% - 40px); color: white; box-sizing: border-box; }
+        #log { font-size: 12px; color: #00ff00; margin-top: 10px; background: #222; padding: 8px; border-radius: 4px; border: 1px solid #444; }
+        button, input { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 5px; border: none; }
+        button { background: #555; color: white; font-weight: bold; }
+        button.active { background: #007bff; cursor: pointer; }
+        #video { position: absolute; bottom: 10px; right: 10px; width: 80px; height: 60px; transform: scaleX(-1); border: 1px solid white; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -25,44 +26,44 @@
     <div id="ui">
         <b>1. VRMファイルを選択</b>
         <input type="file" id="fileInput" accept=".vrm">
-        <div id="status">VRM未選択</div>
+        <div id="status">⏳ ライブラリ読み込み中...</div>
         <br>
         <b>2. カメラ起動</b>
-        <button id="startBtn">カメラを開始してUIを隠す</button>
-        <div id="error-log"></div>
+        <button id="startBtn" disabled>準備ができるまで待機</button>
+        <div id="log">ログ: 初期化開始</div>
     </div>
 
-    <video id="video" playsinline webkit-playsinline muted autoplay></video>
+    <video id="video" playsinline muted autoplay></video>
     <div id="canvas-container"></div>
 
     <script>
-        const log = (msg) => { document.getElementById('error-log').textContent += msg + "\n"; console.log(msg); };
-        
-        let currentVrm = null;
-        const videoElement = document.getElementById('video');
+        const logElement = document.getElementById('log');
         const statusElement = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
 
-        // --- Three.js ---
+        function writeLog(msg) {
+            logElement.innerHTML = msg;
+            console.log(msg);
+        }
+
+        // --- Three.js セットアップ ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x00ff00);
-        const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20);
         camera.position.set(0, 1.4, 1.5);
-
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
+        scene.add(new THREE.DirectionalLight(0xffffff, 1.0), new THREE.AmbientLight(0xffffff, 0.8));
 
-        const light = new THREE.DirectionalLight(0xffffff, 1.0);
-        light.position.set(1, 1, 1).normalize();
-        scene.add(light, new THREE.AmbientLight(0xffffff, 0.7));
-
-        // --- VRM Load ---
+        let currentVrm = null;
         const loader = new THREE.GLTFLoader();
-        document.getElementById('fileInput').addEventListener('change', (e) => {
+
+        // VRM読み込み
+        document.getElementById('fileInput').onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            statusElement.textContent = "読み込み中...";
+            writeLog("VRM読み込み中...");
             const url = URL.createObjectURL(file);
             loader.load(url, (gltf) => {
                 THREE.VRM.from(gltf).then((vrm) => {
@@ -70,6 +71,67 @@
                     currentVrm = vrm;
                     scene.add(vrm.scene);
                     vrm.scene.rotation.y = Math.PI;
+                    statusElement.textContent = "✅ VRM読み込み完了！";
+                    writeLog("準備完了。カメラを開始してください");
+                });
+            });
+        };
+
+        // MediaPipe初期化
+        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
+        
+        faceMesh.onResults((results) => {
+            if (!currentVrm || !results.multiFaceLandmarks || !results.multiFaceLandmarks[0]) return;
+            const rig = Kalidokit.Face.solve(results.multiFaceLandmarks[0], { runtime: 'mediapipe', video: document.getElementById('video') });
+            const head = currentVrm.humanoid.getRawBoneNode('head');
+            if (head) {
+                head.rotation.y = rig.head.y;
+                head.rotation.x = rig.head.x;
+            }
+            const m = rig.mouth.shape;
+            currentVrm.expressionManager.setValue('aa', m.A);
+            currentVrm.expressionManager.setValue('ih', m.I);
+            currentVrm.expressionManager.setValue('ou', m.U);
+            currentVrm.expressionManager.setValue('ee', m.E);
+            currentVrm.expressionManager.setValue('oh', m.O);
+            currentVrm.expressionManager.setValue('blink', 1 - rig.eye.l);
+        });
+
+        // 読み込み完了検知
+        window.onload = () => {
+            writeLog("すべてのリソースが読み込まれました。");
+            startBtn.disabled = false;
+            startBtn.classList.add('active');
+            startBtn.textContent = "カメラを開始する";
+        };
+
+        // カメラ開始
+        startBtn.onclick = async () => {
+            writeLog("カメラアクセス許可を確認中...");
+            try {
+                const cam = new Camera(document.getElementById('video'), {
+                    onFrame: async () => { await faceMesh.send({image: document.getElementById('video')}); },
+                    width: 640, height: 480
+                });
+                await cam.start();
+                writeLog("トラッキング中...");
+                document.getElementById('ui').style.display = "none";
+            } catch (err) {
+                writeLog("エラー: " + err);
+            }
+        };
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (currentVrm) currentVrm.update(clock.getDelta());
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
                     statusElement.textContent = "VRM準備完了！";
                     log("VRM Load Success");
                 }).catch(err => log("VRM Error: " + err));
